@@ -1,0 +1,315 @@
+---
+title: "Assignmenet 1"
+author: "Sofia Davoli 813479"
+date: "26/3/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+if(require(lpSolveAPI)==FALSE)
+if(require(igraph) == F) install.packages("igraph")
+install.packages('lpSolveAPI')
+```
+
+# The problem
+
+
+A trading company is looking for a way to maximize profit per transportation of their goods. The company
+has a train available with 3 wagons.
+When stocking the wagons they can choose among 4 types of cargo, each with its own specifications. How
+much of each cargo type should be loaded on which wagon in order to maximize profit?
+
+## The decision variables
+
+$x_{ij}$  $i\in [1;4]$, $j\in [1;3]$
+
+For example $x_{11}$ is the quantity of cargo 1 in wagon 1.
+
+i = cargo type
+
+j = #wagon
+
+## The objective function
+
+Maximize final transportation profit:
+
+MAX 2000$x_{11}$+2000$x_{12}$+2000$x_{13}$+2500$x_{21}$+2500$x_{22}$+2500$x_{23}$+5000$x_{31}$+5000$x_{32}$+5000$x_{33}$+3500$x_{41}$+3500$x_{42}$+3500$x_{43}$
+
+## The constraints
+
+**weight capacity per wagon:**
+
+wagon 1: $x_{11}$+$x_{21}$+$x_{31}$+$x_{41}$<=10
+
+wagon 2: $x_{12}$+$x_{22}$+$x_{32}$+$x_{42}$<=8
+
+wagon 3:$x_{13}$+$x_{23}$+$x_{33}$+$x_{43}$<=12
+
+
+**cargo weight availability:**
+
+cargo 1: $x_{11}$+$x_{12}$+$x_{13}$<=18
+
+cargo 2: $x_{21}$+$x_{22}$+$x_{23}$<=10
+
+cargo 3: $x_{31}$+$x_{32}$+$x_{33}$<=5
+
+cargo 4: $x_{41}$+$x_{42}$+$x_{43}$<=20
+
+
+**wagon volume capacity:**
+
+wagon 1: 400$x_{11}$+300$x_{21}$+200$x_{31}$+500$x_{41}$<=5000
+
+wagon 2: 400$x_{12}$+300$x_{22}$+200$x_{32}$+500$x_{42}$<=4000
+
+wagon 3: 400$x_{13}$+300$x_{23}$+200$x_{33}$+500$x_{43}$<=8000
+
+
+**Non negativity:**
+
+$x_{ij}$ >= 0 $\forall$ i,j
+
+
+
+## Building the model
+
+```{r echo=TRUE, results='hide'}
+
+model = make.lp(0,12) # 0 constraints, 12 variables
+lp.control(model, sense="max") # original maximization problem
+set.objfn(model,obj=c(2000,2000,2000,2500,2500,2500,5000,5000,5000,3500,3500,3500)) 
+# definition of the objective function using profit coef
+
+# Constraint of wagon 1 weight capacity
+add.constraint(model,
+               xt=c(1,1,1,1),
+               type="<=",rhs=10,
+               indices=c(1,4,7,10)) 
+
+
+# Constraint of wagon 2 weight capacity
+add.constraint(model,
+               xt=c(1,1,1,1),
+               type="<=",rhs=8,
+               indices=c(2,5,8,11))
+
+
+# Constraint of wagon 3 weight capacity
+add.constraint(model,
+               xt=c(1,1,1,1),
+               type="<=",rhs=12,
+               indices=c(3,6,9,12))
+
+# Constraint of cargo 1 availability
+add.constraint(model,
+               xt=c(1,1,1),
+               type="<=",rhs=18,
+               indices=c(1,2,3))
+
+# Constraint of cargo 2 availability
+add.constraint(model,
+               xt=c(1,1,1),
+               type="<=",rhs=10,
+               indices=c(4,5,6))
+
+# Constraint of cargo 3 availability
+add.constraint(model,
+               xt=c(1,1,1),
+               type="<=",rhs=5,
+               indices=c(7,8,9))
+
+# Constraint of cargo 4 availability
+add.constraint(model,
+               xt=c(1,1,1),
+               type="<=",rhs=20,
+               indices=c(10,11,12))
+
+#constraint of wagon 1 volume capacy
+add.constraint(model,
+               xt=c(400,300,200,500),
+               type="<=",rhs=5000,
+               indices=c(1,4,7,10)) 
+
+
+# Constraint of wagon 2 volume capacity
+add.constraint(model,
+               xt=c(400,300,200,500),
+               type="<=",rhs=4000,
+               indices=c(2,5,8,11))
+
+
+# Constraint of wagon 3 wvolume capacity
+add.constraint(model,
+               xt=c(400,300,200,500),
+               type="<=",rhs=8000,
+               indices=c(3,6,9,12))
+
+# lower bound for the decision variables
+set.bounds(model,lower=c(0,0,0,0,0,0,0,0,0,0,0,0)) 
+```
+
+```{r}
+model
+solve(model)
+get.constraints(model)
+```
+
+```{r}
+get.variables(model) #optimal solution
+```
+
+
+The Optimal solution result in the following wagon composition
+
+
+Wagon 1: 5 TONNE of cargo 2 + 5 TONNE of cargo 3
+
+Wagon 2: 8 TONNE of cargo 4
+
+Wagon 3: 12 TONNE of cargo 4
+
+```{r}
+get.objective(model)
+```
+Optimal Value result is a final profit of $107500
+
+
+```{r}
+get.basis(lprec = model, nonbasic = FALSE)
+```
+
+Optimal basis is composed as follow:
+
+(c4, c11, c12, s4, c5, c7, s5, s8, s9, s10)
+
+```{r}
+get.dual.solution(model) #shadow price NB: 1 have not to be conidered
+
+```
+
+**SHADOW PRICES**
+
+The array [2500, 2500, 25000,0,0, 2500,1000,0,0,0, -500, -500, -500, 0,0,0,0,0,0,0,0,0] represents the shadow prices for the dual variables (that are 22 because 22 are the constraints in the problem).
+First 10 elements refers to constraints about wagon weight capacity (1:3), cargos weight availability (4:7) and wagon volume capacity (8:10). Others 12 elements refer to non negativity constraints.
+
+
+Increasing RHS of the first constraint (wagon 1 weight capacity) of 1 unit, from 10 to 11, will increase the result of final profit of $2500.
+An increase of 2 unit in RHS of first constraint, from 10 to 12,  will increase the result of final profit of $5000 (2 times $2500).
+A decrease of 1 unit in RHS of first constraint, from 10 to 12, will decrease the result of final profit of $2500.
+
+Small changes in RHS of constraint about weight availability of cargo 1 and 2, will not affect the final profit. 
+Small changes in RHS of constraints about wagon volume capacity, will not affect the final profit.
+
+A decision of unsing 1 unit of $x_{11}$ or $x_{12}$ or $x_{13}$, instead of 0,  will decrease the result of final profit of $500. 
+A decision of unsing 2 unit of $x_{11}$ or $x_{12}$ or $x_{13}$, insead of 0, will decrease the result of final profit of $1000 (2 times 500).
+
+Shadow prices equal to 0 means that corrensponding constraints is non binding. 
+If the RHS of constraints which shadow prices equal to zero (# 4,5,8,9,10,14:22) increase/decrease there will not be change in the result of final profit.
+
+
+# Sensitivity analysis
+
+```{r, include=FALSE}
+#creating fancy visualization for sensitivity report
+
+printSensitivityRHS <- function(model){
+options(scipen=999)
+arg.rhs =get.sensitivity.rhs(model)
+numRows <- length(arg.rhs$duals)
+symb <- c()
+for (i in c(1:numRows)) symb[i] <- paste("B", i, sep = "" )
+rhs <- data.frame(rhs = symb,arg.rhs)
+rhs<-rhs %>%
+mutate(dualsfrom=replace(dualsfrom, dualsfrom < -1.0e4, "-inf")) %>%
+mutate(dualstill=replace(dualstill, dualstill > 1.0e4, "inf")) %>%
+unite(col = "Sensitivity",
+  dualsfrom,
+  rhs,
+  dualstill ,
+  sep = " <= ", remove = FALSE) %>%
+select(c("rhs","Sensitivity"))
+colnames(rhs)[1]<-c('Rhs')
+print(rhs)
+}
+
+printSensitivityObj <- function(model){
+options(scipen=999)
+arg.obj = get.sensitivity.obj(model)
+numRows <- length(arg.obj$objfrom)
+symb <- c()
+for (i in c(1:numRows)) symb[i] <- paste("C", i, sep = "" )
+obj <- data.frame(Objs = symb, arg.obj)
+obj<-
+obj %>%
+mutate(objfrom=replace(objfrom, objfrom < -1.0e4, "-inf")) %>%
+mutate(objtill=replace(objtill, objtill > 1.0e4, "inf")) %>%
+unite(col = "Sensitivity",
+  objfrom, Objs, objtill ,
+  sep = " <= ", remove = FALSE) %>%
+select(c("Objs","Sensitivity"))
+print(obj)
+}
+```
+
+
+```{r}
+printSensitivityObj(model) # get pretty-printed sensitivity analysis for the obj func.
+```
+**OPTIMALITY RANGES**
+
+The objective coefficent C1 (profit of cargo 1 on wagon 1, equal to 2000) can increase till 2500 or decrease till -$\infty$ witouth changing the optimal solution, assuming all other coefficient remain constant. [Same for C2, C3]
+
+Any changes in C4 (profit of cargo 2 on wagon 1, qual to 2500) may cause a change of the optimal soluiton, since it has range equal to zero. [Same for C11]
+
+The objective coefficent C5 (profit of cargo 2 on wagon 2, equal to 2500) can decrease till -$\infty$ witouth changing the optimal solution, assuming all other coefficient remain constant. [Same for C6]
+
+The objective coefficent C7 (profit of cargo 3 on wagon 1, equal to 5000) can increase till +$\infty$ witouth changing the optimal solution, assuming all other coefficient remain constant. 
+
+The objective coefficent C8 (profit of cargo 3 on wagon 2, equal to 5000) can decrease till -$\infty$ witouth changing the optimal solution, assuming all other coefficient remain constant. [Same for C9]
+
+The objective coefficent C10 (profit of cargo 4 on wagon 1, equal to 3500) can decrease till -$\infty$ witouth changing the optimal solution, assuming all other coefficient remain constant.
+
+The objective coefficent C12 (profit of cargo 4 on wagon 3, equal to 3500) can increase till +$\infty$ witouth changing the optimal solution, assuming all other coefficient remain constant.
+
+
+```{r}
+printSensitivityRHS(model) # get pretty-printed sensitivity analysis for the rhs
+
+```
+
+**RHS RANGES**
+
+This 22 Ranges represent the range between which RHSs can vary without changing the corrensponding shadow prices. (one for each constraints, including non negativity constraints)
+
+For example B1 RHS (weight capacity of wagon 1, equal to 10) can decrease/increase of 5 unit and the corrensponding shadow prices ($2500) will not change.
+
+B4, B5, B8, B9,B10, B14, B15, B17, B21, B22 RHSs can vary in any way without changing corrensponding shadow prices.
+
+B18 RHS have to remain equal to zero. 
+
+
+
+
+# Questions about LP
+
+## 1. Can an LP model have more than one optimal solution. Is it possible for an LP model to have exactly two optimal solutions? Why or why not?
+
+An LP model can have more than one optimal solution. An Lp model can have 0,1, or $\infty$ solutions.It is not possible for an Lp problem to have exactly 2 optimal solution beacause if 2 solutions exist than a segment between them exist and so $\infty$ solutions exist.
+
+## 2. Are the following objective functions for an LP model equivalent? That is, if they are both used, one at a time, to solve a problem with exactly the same constraints, will the optimal values for x1 and x2 be the same in both cases? Why or why not?
+
+**max 2x1+3x2**
+
+**min -2x1-3x2**
+
+This 2 funtion are opposite function [f(x), -f(x)], so maximizing function 1 is equivalent to minimizing function 2. The optimal solution founded for functoin 1 will result in being the optimal solution also for function 2. 
+
+
+
+## 3. Which of the following constraints are not linear or cannot be included as a constraint in a linear programming problem?
+
+B, D, E (because they does not respect additivity and proportionality assumptions)

@@ -1,0 +1,125 @@
+---
+title: "Assignement 4"
+author: "Sofia Davoli"
+date: "6/6/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, include = FALSE}
+library(yaml)
+library(radiant)
+library(radiant.model)
+
+```
+
+
+# 1. The decision tree
+
+
+```{r}
+treeAss = yaml.load_file(input = "C:/Users/davol/Documents/Magistrale/decision models/assignement/tree-Ass.yaml")
+result = dtree(yl = treeAss)
+plot(result, final = FALSE)
+```
+
+
+# 2. Expected value
+
+```{r}
+plot(result, final = TRUE)
+```
+
+Using Expected Value we prefer to buy all the chips from KR Electronics company, since the expected price is lower than the other 2 options.
+
+# 3. Sensitivity analysis
+
+
+```{r}
+sensitivity(
+  result, 
+  vars = "ptax 0 1 0.2;", 
+  decs = c("ITA", "ITAKOR", "KOR"), 
+  custom = FALSE)
+```
+
+For lower value of probability of the charge imposed by Italin governement it is convenient to buy korean products. If we are certain (80% sure or more) that The charge will be imposed, it is convenient to buy everything from the Italian company. Buyng half of  the chips from korea and half from italy is never convenient.
+
+# 4. Utility Function and Certainty Equivalent
+
+```{r}
+cost <- as.data.frame(cbind(rep(1500000, 4), 
+                            c(1250000, 1500000, 1750000, 2250000),
+                            c(750000, 1125000, 1500000, 2250000)
+              ))
+colnames(cost) <- c("ITA","ITA-KOR","KOR")
+cost
+```
+
+```{r}
+utilityFunctionExp <- function(X, R = 750000) {
+  res <- 1- exp(-X/R)
+  return(res)
+}
+
+CertEquivalent = function(EU, R){
+  CE = -R*ln(1-EU)
+  return(CE)
+}
+
+CalcExpectedUtilityFunction = function(cost, R = 750000){
+  UF1 = utilityFunctionExp(cost$ITA, R)[1]
+  #________________________________________________________________________
+  UF2 = utilityFunctionExp(cost$`ITA-KOR`, R)
+  UF2_A = 0.333*UF2[2]+0.333*UF2[3]+ 0.333*UF2[4]
+  UF2_B = max(UF2_A, UF2[1])
+  #________________________________________________________________________
+  UF3 = utilityFunctionExp(cost$KOR, R)
+  UF3_A = 0.333*UF3[2]+0.333*UF3[3]+ 0.333*UF3[4]
+  UF3_B = max(UF3_A, UF3[1])
+  
+  return (c(UF1, UF2_B, UF3_B))
+}
+
+CalcExpectedUtilityFunction(cost = cost)
+```
+
+Korean and Italian Utility Function are the less risky option. Theyr UF falue are close cause the 2 option are almost equals. In this case we still prefer to buy From Korean company.
+
+```{r}
+CalcBranchCE = function(cost, R){
+  CE_vett = CertEquivalent(CalcExpectedUtilityFunction(cost, R), R)
+  return(CE_vett)
+}
+
+CalcBranchCE(cost = cost, R = 750000)
+```
+
+
+To avoid risk we can buy for a $1491115 price
+
+
+# 5. KR revises the offer and Value of Information
+
+```{r}
+treeAssrevised = yaml.load_file(input = "C:/Users/davol/Documents/Magistrale/decision models/assignement/tree-Ass-revised.yaml")
+result = dtree(yl = treeAssrevised, opt = "min")
+plot(result, final = TRUE)
+```
+
+If the charge by italian governement:
+
+- is zero: buy from korean for $750000
+- is 50%: buy from korean for $1125000
+- is 100% buy from koeran or from italy (same price) for $1500000
+- is 200% buy from italy for $1500000
+In this case EV is obtained as 
+**750000*0.4 + 1125000*0.6*0.3 + 1500000*0.6*0.3 + 1500000*0.6*0.3**
+
+**1244055 - 1042500 = 201555** is the value of perfect information 
